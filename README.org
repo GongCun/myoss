@@ -1,0 +1,92 @@
+
+* 选项
+  #+begin_example
+    append -f file -o object -b bucket -s size -l length [-p]
+    -f file   : 指定上传的文件
+    -o object : 指定上传的对象
+    -b bucket : 指定上传的桶区
+    -s size   : 指定上传的切片大小（byte），默认大小 1GB。
+    -l length : 指定上传文件的起始偏移量
+    -p        : 指定是否通过代理（proxy）
+  #+end_example
+
+* 测试
+
+** 创建测试文件
+   #+begin_src sh
+     dd if=/dev/urandom of=./dd.file bs=1M count=32
+   #+end_src
+
+** 上传测试文件
+   #+begin_example
+     # 由于 cygwin 上 source 无法正确导入环境变量（e.g. source file.env），因此需要将
+     # 环境变量作为前置参数运行。分片大小為 1MB。
+
+     $ source upload.env
+
+     $ ENDPOINT=$ENDPOINT ACCESS_KEY_ID=$ACCESS_KEY_ID \
+     ACCESS_KEY_SECRET=$ACCESS_KEY_SECRET PROXY_HOST=$PROXY_HOST \
+     PROXY_USER=$PROXY_USER PROXY_PASSWD=$PROXY_PASSWD PROXY_PORT=$PROXY_PORT \
+     ./append -p -b $bucket -o upload.file -f ./dd.file -s 1048576
+
+     file size: 33554432
+     need transfer: 33554432
+     split to numbers: 32
+     append object from buffer succeeded (0)
+     append object from buffer succeeded (1)
+     append object from buffer succeeded (2)
+     append object from buffer succeeded (3)
+     append object from buffer succeeded (4)
+     append object from buffer succeeded (5)
+     append object from buffer succeeded (6)
+     append object from buffer succeeded (7)
+     <Ctrl-C>
+     offset = 8388608
+
+     # 由于对信号 SIGINT（Ctrl-C） 做了处理，因此会等待当前追加上传完成后才退出，退出
+     # 时会说明文件偏移量，下一次重传请指定改偏移量。
+     $ ENDPOINT=$ENDPOINT ACCESS_KEY_ID=$ACCESS_KEY_ID \
+     ACCESS_KEY_SECRET=$ACCESS_KEY_SECRET PROXY_HOST=$PROXY_HOST \
+     PROXY_USER=$PROXY_USER PROXY_PASSWD=$PROXY_PASSWD PROXY_PORT=$PROXY_PORT \
+     ./append -p -b $bucket -o upload.file -f ./dd.file -s 1048576 -l 8388608
+
+     file size: 33554432
+     need transfer: 25165824
+     split to numbers: 24
+     append object from buffer succeeded (0)
+     append object from buffer succeeded (1)
+     append object from buffer succeeded (2)
+     append object from buffer succeeded (3)
+     append object from buffer succeeded (4)
+     append object from buffer succeeded (5)
+     append object from buffer succeeded (6)
+     append object from buffer succeeded (7)
+     append object from buffer succeeded (8)
+     append object from buffer succeeded (9)
+     append object from buffer succeeded (10)
+     append object from buffer succeeded (11)
+     append object from buffer succeeded (12)
+     append object from buffer succeeded (13)
+     append object from buffer succeeded (14)
+     append object from buffer succeeded (15)
+     append object from buffer succeeded (16)
+     append object from buffer succeeded (17)
+     append object from buffer succeeded (18)
+     append object from buffer succeeded (19)
+     append object from buffer succeeded (20)
+     append object from buffer succeeded (21)
+     append object from buffer succeeded (22)
+     append object from buffer succeeded (23)
+
+   #+end_example
+   
+** 检查一致性
+   #+begin_src sh
+     $ ossutil64 --proxy-host socks5://$proxy_host:$proxy_port --proxy-user $user \
+       --proxy-pwd $password cp oss://$bucket/upload.file ./download.file
+
+     $ md5sum ./dd.file ./download.file
+     035ca214ed1042a7c6cfd80445920ce8 *./dd.file
+     035ca214ed1042a7c6cfd80445920ce8 *./download.file
+   #+end_src
+
