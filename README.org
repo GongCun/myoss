@@ -1,4 +1,8 @@
 
+* 安装
+  #+begin_src sh
+    make
+  #+end_src
 * 选项
   #+begin_example
     append -f file -o object -b bucket -s size -l length [-p]
