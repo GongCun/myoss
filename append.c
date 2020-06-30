@@ -28,6 +28,12 @@ static void sig_int(int signo)
     exit(2);
 }
 
+static void percentage(int64_t consumed_bytes, int64_t total_bytes)
+{
+    assert(total_bytes >= consumed_bytes);
+    printf("%%%" APR_INT64_T_FMT "\n", consumed_bytes * 100 / total_bytes);
+}
+
 void init_options(oss_request_options_t *options)
 {
     endpoint = strdup(getenv("ENDPOINT"));
@@ -210,7 +216,7 @@ int main(int argc, char *argv[])
         }
 
         /* 追加文件。*/
-        headers2 = aos_table_make(pool, 0);
+        /* headers2 = aos_table_make(pool, 0); */
         aos_list_init(&buffer);
         content = aos_buf_pack(pool, object_content, copysz);
         aos_list_add_tail(&content->node, &buffer);
@@ -223,11 +229,24 @@ int main(int argc, char *argv[])
             exit(1);
         }
 
-        resp_status = oss_append_object_from_buffer(oss_client_options,
+        /* resp_status = oss_append_object_from_buffer(oss_client_options, */
+        /*                                             &bucket, */
+        /*                                             &object, */
+        /*                                             position, */
+        /*                                             &buffer, headers2, &resp_headers); */
+
+        aos_list_t resp_body;
+        resp_status = oss_do_put_object_from_buffer(oss_client_options,
                                                     &bucket,
                                                     &object,
                                                     position,
-                                                    &buffer, headers2, &resp_headers);
+                                                    (uint64_t) 0,
+                                                    &buffer,
+                                                    headers2,
+                                                    NULL,
+                                                    percentage,
+                                                    &resp_headers,
+                                                    &resp_body);
 
         if (aos_status_is_ok(resp_status)) {
             printf("append object from buffer succeeded (%llu)\n", i++);
