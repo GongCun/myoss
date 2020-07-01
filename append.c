@@ -5,6 +5,7 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <signal.h>
+#include <time.h>
 
 #define MAX_LINE 2048
 #define COPYINCR (1024*1024*1024) /* 1 GB */
@@ -169,6 +170,10 @@ int main(int argc, char *argv[])
     aos_table_t *headers2 = NULL;
     aos_table_t *resp_headers = NULL;
     aos_status_t *resp_status = NULL;
+    double begin_millisecond = 0;
+    double end_millisecond = 0;
+    double cost_millisecond = 0;
+    struct timespec ts;
     
     aos_str_set(&bucket, bucket_name);
     aos_str_set(&object, object_name);
@@ -233,6 +238,11 @@ int main(int argc, char *argv[])
             exit(1);
         }
 
+        if (clock_gettime(CLOCK_MONOTONIC, &ts)) {
+            perror("clock_gettime");
+            exit(1);
+        }
+        begin_millisecond = ts.tv_sec * 1000 + ((double) ts.tv_nsec) / 1000 / 1000;
         resp_status = oss_do_append_object_from_buffer(oss_client_options,
                                                        &bucket,
                                                        &object,
@@ -245,12 +255,20 @@ int main(int argc, char *argv[])
                                                        &resp_headers,
                                                        &resp_body);
 
-        if (aos_status_is_ok(resp_status)) {
-            printf("append object from buffer succeeded (%llu)\n", i++);
-        } else {
+        if (!aos_status_is_ok(resp_status)) {
             printf("append object from buffer failed\n");
             exit(1);
         }
+
+        if (clock_gettime(CLOCK_MONOTONIC, &ts)) {
+            perror("clock_gettime");
+            exit(1);
+        }
+        end_millisecond = ts.tv_sec * 1000 + ((double) ts.tv_nsec) / 1000 / 1000;
+        cost_millisecond = end_millisecond - begin_millisecond;
+
+        printf("append object from buffer succeeded (%llu), speed %.2f(kb/s)\n",
+               i++, (((double)copysz) / 1024) / (cost_millisecond / 1000));
 
         next_append_position = (char *)(apr_table_get(resp_headers, "x-oss-next-append-position"));
         position = strtoull(next_append_position, NULL, 10);
