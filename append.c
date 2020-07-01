@@ -31,8 +31,24 @@ static void sig_int(int signo)
 
 static void percentage(int64_t consumed_bytes, int64_t total_bytes)
 {
+    if (isatty(1)) {
+        FILE *fpin = NULL;
+        char line[MAX_LINE];
+        char cmd[MAX_LINE];
+
+        fpin = popen("/usr/bin/tput lines", "r");
+        if (fpin == NULL) {
+            perror("popen");
+            exit(1);
+        }
+        fgets(line, MAX_LINE, fpin);
+        pclose(fpin);
+        snprintf(cmd, MAX_LINE, "/usr/bin/tput cup %d 0", atoi(line)-1);
+        system(cmd);
+    }
     assert(total_bytes >= consumed_bytes);
-    printf("%%%" APR_INT64_T_FMT "\n", consumed_bytes * 100 / total_bytes);
+    printf("%%%" APR_INT64_T_FMT, consumed_bytes * 100 / total_bytes);
+    fflush(stdout);
 }
 
 void init_options(oss_request_options_t *options)
@@ -267,7 +283,7 @@ int main(int argc, char *argv[])
         end_millisecond = ts.tv_sec * 1000 + ((double) ts.tv_nsec) / 1000 / 1000;
         cost_millisecond = end_millisecond - begin_millisecond;
 
-        printf("append object from buffer succeeded (%llu), speed %.2f(kb/s)\n",
+        printf(" append object from buffer succeeded (%llu), speed %.2f(kb/s)\n",
                i++, (((double)copysz) / 1024) / (cost_millisecond / 1000));
 
         next_append_position = (char *)(apr_table_get(resp_headers, "x-oss-next-append-position"));
