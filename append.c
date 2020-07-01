@@ -160,6 +160,8 @@ int main(int argc, char *argv[])
     aos_string_t bucket;
     aos_string_t object;
     aos_list_t buffer;
+    aos_list_t resp_body;
+    uint64_t initcrc = 0;
     unsigned long long position = 0;
     char *next_append_position = NULL;
     aos_buf_t *content = NULL;
@@ -202,21 +204,23 @@ int main(int argc, char *argv[])
         }
 
         /* 获取起始追加位置。*/
-        headers1 = aos_table_make(pool, 0);
-        resp_status = oss_head_object(oss_client_options,
-                                      &bucket,
-                                      &object,
-                                      headers1,
-                                      &resp_headers);
+        if (i == 0) {
+            headers1 = aos_table_make(pool, 0);
+            resp_status = oss_head_object(oss_client_options,
+                                          &bucket,
+                                          &object,
+                                          headers1,
+                                          &resp_headers);
 
-        if (aos_status_is_ok(resp_status)) {
-            next_append_position = (char *)(apr_table_get(resp_headers,
-                                                         "x-oss-next-append-position"));
-            position = strtoull(next_append_position, NULL, 10);
+            if (aos_status_is_ok(resp_status)) {
+                next_append_position = (char *)(apr_table_get(resp_headers,
+                                                              "x-oss-next-append-position"));
+                position = strtoull(next_append_position, NULL, 10);
+            }
         }
 
         /* 追加文件。*/
-        /* headers2 = aos_table_make(pool, 0); */
+        headers2 = aos_table_make(pool, 0);
         aos_list_init(&buffer);
         content = aos_buf_pack(pool, object_content, copysz);
         aos_list_add_tail(&content->node, &buffer);
@@ -229,24 +233,17 @@ int main(int argc, char *argv[])
             exit(1);
         }
 
-        /* resp_status = oss_append_object_from_buffer(oss_client_options, */
-        /*                                             &bucket, */
-        /*                                             &object, */
-        /*                                             position, */
-        /*                                             &buffer, headers2, &resp_headers); */
-
-        aos_list_t resp_body;
-        resp_status = oss_do_put_object_from_buffer(oss_client_options,
-                                                    &bucket,
-                                                    &object,
-                                                    position,
-                                                    (uint64_t) 0,
-                                                    &buffer,
-                                                    headers2,
-                                                    NULL,
-                                                    percentage,
-                                                    &resp_headers,
-                                                    &resp_body);
+        resp_status = oss_do_append_object_from_buffer(oss_client_options,
+                                                       &bucket,
+                                                       &object,
+                                                       position,
+                                                       initcrc,
+                                                       &buffer,
+                                                       headers2,
+                                                       NULL,
+                                                       percentage,
+                                                       &resp_headers,
+                                                       &resp_body);
 
         if (aos_status_is_ok(resp_status)) {
             printf("append object from buffer succeeded (%llu)\n", i++);
@@ -254,6 +251,10 @@ int main(int argc, char *argv[])
             printf("append object from buffer failed\n");
             exit(1);
         }
+
+        next_append_position = (char *)(apr_table_get(resp_headers, "x-oss-next-append-position"));
+        position = strtoull(next_append_position, NULL, 10);
+        initcrc = aos_atoui64((char*)(apr_table_get(resp_headers, OSS_HASH_CRC64_ECMA)));
 
         munmap(object_content, copysz);
         fsz += copysz;
