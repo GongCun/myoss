@@ -213,9 +213,9 @@ int main(int argc, char *argv[])
                                           &resp_headers);
 
             if (aos_status_is_ok(resp_status)) {
-                next_append_position = (char *)(apr_table_get(resp_headers,
-                                                              "x-oss-next-append-position"));
+                next_append_position = (char *)(apr_table_get(resp_headers, "x-oss-next-append-position"));
                 position = strtoull(next_append_position, NULL, 10);
+                initcrc = aos_atoui64((char*)(apr_table_get(resp_headers, OSS_HASH_CRC64_ECMA)));
             }
         }
 
