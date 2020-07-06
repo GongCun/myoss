@@ -1,5 +1,4 @@
-#include "oss_api.h"
-#include "aos_http_io.h"
+#include "myoss.h"
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
@@ -7,19 +6,9 @@
 #include <signal.h>
 #include <time.h>
 
-#define MAX_LINE 2048
 #define COPYINCR (1024*1024*1024) /* 1 GB */
+#define HELP_STR "append [-p] -b bucket_name -o object_name -f local_file -s split_size -l offset\n"
 
-int proxy_flag;
-char *bucket_name;
-char *object_name;
-char *endpoint;
-char *access_key_id;
-char *access_key_secret;
-char *proxy_host;
-char *proxy_user;
-char *proxy_passwd;
-char *proxy_port;
 unsigned long long i, total;
 unsigned long long fsz = 0, length = 0;
 
@@ -29,81 +18,6 @@ static void sig_int(int signo)
     exit(2);
 }
 
-static void percentage(int64_t consumed_bytes, int64_t total_bytes)
-{
-    if (isatty(1)) {
-        FILE *fpin = NULL;
-        char line[MAX_LINE];
-        char cmd[MAX_LINE];
-
-        fpin = popen("/usr/bin/tput lines", "r");
-        if (fpin == NULL) {
-            perror("popen");
-            exit(1);
-        }
-        fgets(line, MAX_LINE, fpin);
-        pclose(fpin);
-        snprintf(cmd, MAX_LINE, "/usr/bin/tput cup %d 0", atoi(line)-1);
-        system(cmd);
-    }
-    assert(total_bytes >= consumed_bytes);
-    printf("%%%" APR_INT64_T_FMT, consumed_bytes * 100 / total_bytes);
-    fflush(stdout);
-}
-
-void init_options(oss_request_options_t *options)
-{
-    endpoint = strdup(getenv("ENDPOINT"));
-    access_key_id = strdup(getenv("ACCESS_KEY_ID"));
-    access_key_secret = strdup(getenv("ACCESS_KEY_SECRET"));
-
-    options->config = oss_config_create(options->pool);
-
-    /* 用char*类型的字符串初始化aos_string_t类型。*/
-    aos_str_set(&options->config->endpoint, endpoint);
-    aos_str_set(&options->config->access_key_id, access_key_id);
-    aos_str_set(&options->config->access_key_secret, access_key_secret);
-
-    /* 是否使用了CNAME。0表示不使用。*/
-    options->config->is_cname = 0;
-
-    /* 用于设置网络相关参数，比如超时时间等。*/
-    options->ctl = aos_http_controller_create(options->pool, 0);
-}
-
-void init_proxy_options(oss_request_options_t *options)
-{
-
-    endpoint = strdup(getenv("ENDPOINT"));
-    access_key_id = strdup(getenv("ACCESS_KEY_ID"));
-    access_key_secret = strdup(getenv("ACCESS_KEY_SECRET"));
-    proxy_host = strdup(getenv("PROXY_HOST"));
-    proxy_user = strdup(getenv("PROXY_USER"));
-    proxy_passwd = strdup(getenv("PROXY_PASSWD"));
-    proxy_port = strdup(getenv("PROXY_PORT"));
-
-    options->config = oss_config_create(options->pool);
-
-    /* 用char*类型的字符串初始化aos_string_t类型。*/
-    aos_str_set(&options->config->endpoint, endpoint);
-    aos_str_set(&options->config->access_key_id, access_key_id);
-    aos_str_set(&options->config->access_key_secret, access_key_secret);
-    aos_str_set(&options->config->proxy_host, proxy_host);
-    aos_str_set(&options->config->proxy_user, proxy_user);
-    aos_str_set(&options->config->proxy_passwd, proxy_passwd);
-    options->config->proxy_port = atoi(proxy_port);
-
-    /* 是否使用了CNAME。0表示不使用。*/
-    options->config->is_cname = 0;
-
-    /* 用于设置网络相关参数，比如超时时间等。*/
-    options->ctl = aos_http_controller_create(options->pool, 0);
-    options->ctl->options = aos_http_request_options_create(options->pool);
-    oss_config_resolve(options->pool, options->config, options->ctl);
-    options->ctl->options->verify_ssl = AOS_FALSE;
-}
-
-
 int main(int argc, char *argv[])
 {
     int c;
@@ -112,10 +26,12 @@ int main(int argc, char *argv[])
     unsigned long size = 0; /* maximum to 4GB */
     unsigned long copysz = 0;
     void *object_content;
+    char *object_name;
+    char *bucket_name;
 
     opterr = 0;
 
-    while ((c = getopt(argc, argv, "pb:o:f:s:l:")) != -1)
+    while ((c = getopt(argc, argv, "pb:o:f:s:l:")) != EOF)
         switch (c) {
         case 'p':
             proxy_flag = 1;
@@ -141,9 +57,14 @@ int main(int argc, char *argv[])
             fsz += length;
             break;
         default:
-            fprintf(stderr, "append -p -b bucket_name -o object_name\n");
+            fprintf(stderr, HELP_STR);
             exit(1);
         }
+
+    if (optind < argc) {
+        fprintf(stderr, HELP_STR);
+        exit(1);
+    }
 
     if (!size)
         size = COPYINCR;
@@ -309,13 +230,7 @@ int main(int argc, char *argv[])
 
     free(bucket_name);
     free(object_name);
-    free(endpoint);
-    free(access_key_id);
-    free(access_key_secret);
-    free(proxy_host);
-    free(proxy_user);
-    free(proxy_passwd);
-    free(proxy_port);
+    myoss_free();
 
     return 0;
 }
