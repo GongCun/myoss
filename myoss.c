@@ -85,3 +85,15 @@ void myoss_free(void)
     free(proxy_passwd);
     free(proxy_port);
 }
+
+int64_t get_file_size(const char *file_path)
+{
+    int64_t filesize = -1;
+    struct stat statbuff;
+    if(stat(file_path, &statbuff) < 0){
+        return filesize;
+    } else {
+        filesize = statbuff.st_size;
+    }
+    return filesize;
+}
