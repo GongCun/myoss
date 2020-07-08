@@ -45,82 +45,42 @@ int main(int argc, char *argv[])
     aos_string_t object;
     oss_upload_file_t *upload_file = NULL;
     aos_string_t upload_id;
-    /* aos_table_t *headers = NULL; */
-    /* aos_table_t *complete_headers = NULL; */
     aos_table_t *resp_headers = NULL;
     aos_status_t *resp_status = NULL;
     int64_t part_num = 1;
+    char* etag = NULL;
 
     aos_str_set(&bucket, bucket_name);
     aos_str_set(&object, object_name);
-    /* aos_str_null(&upload_id); */
     aos_str_set(&upload_id, upload_id_str);
     part_num = aos_atoi64(part_num_str);
-    
-    
-    /* headers = aos_table_make(pool, 1); */
-    /* complete_headers = aos_table_make(pool, 1); */
-
-    /* /\* 初始化分片上传，获取一个上传ID(upload_id)。*\/ */
-    /* resp_status = oss_init_multipart_upload(oss_client_options, &bucket, &object, &upload_id, headers, &resp_headers); */
-
-    /* /\* 判断分片上传初始化是否成功。*\/ */
-    /* if (aos_status_is_ok(resp_status)) { */
-    /*     printf("Init multipart upload succeeded, upload_id: %.*s\n", */
-    /*            upload_id.len, upload_id.data); */
-    /* } else { */
-    /*     printf("Init multipart upload failed, upload_id: %.*s\n", */
-    /*            upload_id.len, upload_id.data); */
-    /* } */
 
     /* 上传分片。*/
-    int64_t file_length = 0;
-    /* int64_t pos = 0; */
-    /* aos_list_t complete_part_list; */
-    /* oss_complete_part_content_t* complete_content = NULL; */
-    /* char* part_num_str = NULL; */
-    char* etag = NULL;
-
-    /* aos_list_init(&complete_part_list); */
-
-    file_length = get_file_size(local_filename);
-    printf("file_length = %ld\n", file_length);
-    
-    /* while(pos < file_length) { */
     upload_file = oss_create_upload_file(pool);
     aos_str_set(&upload_file->filename, local_filename);
-    /* aos_str_set(&upload_file->filename, object_name); */
     upload_file->file_pos = 0;
-    /* pos += 1024 * 1024; */
-    upload_file->file_last = file_length;
-    resp_status = oss_upload_part_from_file(oss_client_options, &bucket, &object, &upload_id, part_num, upload_file, &resp_headers);
+    upload_file->file_last = get_file_size(local_filename);
+    /* resp_status = oss_upload_part_from_file(oss_client_options, &bucket, &object, &upload_id, part_num, upload_file, &resp_headers); */
+    resp_status = oss_do_upload_part_from_file(oss_client_options,
+                                               &bucket,
+                                               &object,
+                                               &upload_id,
+                                               part_num,
+                                               upload_file,
+                                               percentage,
+                                               NULL,
+                                               NULL,
+                                               &resp_headers,
+                                               NULL);
 
-    /* 保存分片号和Etag。*/
-    /* complete_content = oss_create_complete_part_content(pool); */
-    /* part_num_str = apr_psprintf(pool, "%d", part_num-1); */
-    /* aos_str_set(&complete_content->part_number, part_num_str); */
     etag = apr_pstrdup(pool, (char*)apr_table_get(resp_headers, "ETag"));
-    /* aos_str_set(&complete_content->etag, etag); */
-    /* aos_list_add_tail(&complete_content->node, &complete_part_list); */
+    printf("\npart-number: %ld, etag: %s\n", part_num, etag);
 
     if (aos_status_is_ok(resp_status)) {
         printf("Multipart upload part from file succeeded\n");
     } else {
         printf("Multipart upload part from file failed\n");
     }
-
-    printf("part-number: %ld, etag: %s\n", part_num, etag);
-    /* } */
-
-    /* /\* 完成分片上传。*\/ */
-    /* resp_status = oss_complete_multipart_upload(oss_client_options, &bucket, &object, &upload_id, &complete_part_list, complete_headers, &resp_headers); */
-    /* /\* 判断分片上传是否完成。*\/ */
-    /* if (aos_status_is_ok(resp_status)) { */
-    /*     printf("Complete multipart upload from file succeeded, upload_id: %.*s\n", */
-    /*            upload_id.len, upload_id.data); */
-    /* } else { */
-    /*     printf("Complete multipart upload from file failed\n"); */
-    /* } */
 
     /* 释放内存池，相当于释放了请求过程中各资源分配的内存。*/
     aos_pool_destroy(pool);
