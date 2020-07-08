@@ -60,7 +60,6 @@ int main(int argc, char *argv[])
     aos_str_set(&upload_file->filename, local_filename);
     upload_file->file_pos = 0;
     upload_file->file_last = get_file_size(local_filename);
-    /* resp_status = oss_upload_part_from_file(oss_client_options, &bucket, &object, &upload_id, part_num, upload_file, &resp_headers); */
     resp_status = oss_do_upload_part_from_file(oss_client_options,
                                                &bucket,
                                                &object,
