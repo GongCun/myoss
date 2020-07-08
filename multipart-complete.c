@@ -7,7 +7,7 @@ char *upload_id_str;
 int main(int argc, char *argv[])
 {
     if (argc != 4) {
-        fprintf(stderr, "multipart-upload <bucket> <object> <upload-id>\n");
+        fprintf(stderr, "multipart-complete <bucket> <object> <upload-id>\n");
         exit(1);
     }
     bucket_name = argv[1];
