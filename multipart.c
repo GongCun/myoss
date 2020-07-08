@@ -103,7 +103,7 @@ int main(int argc, char *argv[])
     resp_status = oss_complete_multipart_upload(oss_client_options, &bucket, &object, &upload_id, &complete_part_list, complete_headers, &resp_headers);
     /* 判断分片上传是否完成。*/
     if (aos_status_is_ok(resp_status)) {
-        printf("Complete multipart upload from file succeeded, upload_id: %.*s\n", 
+        printf("Complete multipart upload from file succeeded, upload_id: %.*s\n",
                upload_id.len, upload_id.data);
     } else {
         printf("Complete multipart upload from file failed\n");
