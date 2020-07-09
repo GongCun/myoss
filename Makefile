@@ -5,7 +5,7 @@ LDFLAGS = -L/usr/lib -L/usr/local/lib
 LDLIBS = -loss_c_sdk -lmxml -lcurl -lapr-1 -laprutil-1 -lpthread
 
 PROG = append resume multipart multipart-init multipart-upload multipart-list \
-				multipart-complete multipart-abort
+				multipart-complete multipart-abort multipart-upload-part
 TEMPFILES = core core.* *.o temp.* *.out *~ *.exe *.stackdump
 
 all: $(PROG)
@@ -32,6 +32,9 @@ multipart-complete: multipart-complete.o myoss.o
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS) $(LDLIBS)
 
 multipart-abort: multipart-abort.o myoss.o
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS) $(LDLIBS)
+
+multipart-upload-part: multipart-upload-part.o myoss.o
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS) $(LDLIBS)
 
 .c.o:
